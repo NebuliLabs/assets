@@ -1,1 +1,180 @@
-🔥
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nebuli Labs Assets</title>
+<link href="https://fonts.googleapis.com/css2?family=Kanit:wght@500&display=swap" rel="stylesheet">
+<style>
+  body {
+    font-family: 'Kanit', sans-serif;
+    background: #0b0b12;
+    color: #f8f8f8;
+    margin: 0;
+    padding: 30px;
+  }
+  h1 {
+    color: #d4af37;
+    text-align: center;
+    margin-bottom: 25px;
+    font-size: 2em;
+    letter-spacing: 1px;
+  }
+  #path {
+    text-align: center;
+    margin-bottom: 15px;
+    font-size: 0.9em;
+    opacity: 0.8;
+  }
+  #file-list {
+    max-width: 800px;
+    margin: 0 auto;
+    background: rgba(255,255,255,0.05);
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 0 10px rgba(212,175,55,0.2);
+  }
+  .item {
+    padding: 10px;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+  }
+  .item:last-child {
+    border-bottom: none;
+  }
+  .item a {
+    text-decoration: none;
+    color: #fff;
+    flex-grow: 1;
+  }
+  .item a:hover {
+    color: #d4af37;
+  }
+  .type {
+    font-size: 0.9em;
+    opacity: 0.7;
+    text-transform: uppercase;
+  }
+  .folder {
+    color: #d4af37;
+  }
+  button {
+    background: none;
+    border: 1px solid #d4af37;
+    color: #d4af37;
+    border-radius: 8px;
+    padding: 6px 12px;
+    cursor: pointer;
+    margin-bottom: 15px;
+  }
+  button:hover {
+    background: #d4af37;
+    color: #0b0b12;
+  }
+</style>
+</head>
+<body>
+  <h1>Assets Directory</h1>
+  <div id="path"></div>
+  <div style="text-align:center;">
+    <button id="back-btn" style="display:none;">Back</button>
+  </div>
+  <div id="file-list">Loading assets...</div>
+
+<script>
+const user = "NebuliLabs";
+const repo = "assets";
+const branch = "main";
+
+let currentPath = "";
+
+function getFileCategory(name, type) {
+  if (type === "dir") return { icon: "📁", category: "folder" };
+  const ext = name.split('.').pop().toLowerCase();
+  if (["png","jpg","jpeg","webp","gif","svg"].includes(ext)) return { icon: "🖼️", category: "image" };
+  if (["mp4","mov","webm","avi","mkv"].includes(ext)) return { icon: "🎬", category: "video" };
+  if (["mp3","wav","flac","ogg"].includes(ext)) return { icon: "🎵", category: "audio" };
+  if (["zip","rar","7z","tar","gz"].includes(ext)) return { icon: "📦", category: "archive" };
+  if (["pdf","doc","docx","txt","md","rtf"].includes(ext)) return { icon: "📄", category: "document" };
+  if (["js","ts","html","css","json","py","c","cpp","java","sh"].includes(ext)) return { icon: "💻", category: "code" };
+  return { icon: "📄", category: "other" };
+}
+
+const typeOrder = {
+  folder: 0,
+  image: 1,
+  video: 2,
+  audio: 3,
+  document: 4,
+  code: 5,
+  archive: 6,
+  other: 7
+};
+
+async function loadFiles(path = "") {
+  const list = document.getElementById('file-list');
+  const pathDisplay = document.getElementById('path');
+  const backBtn = document.getElementById('back-btn');
+  list.innerHTML = "Loading assets...";
+
+  try {
+    const res = await fetch(`https://api.github.com/repos/${user}/${repo}/contents/${path}?ref=${branch}`);
+    if (!res.ok) throw new Error('Failed to fetch repo contents');
+    let data = await res.json();
+
+    data = data.map(item => {
+      const { icon, category } = getFileCategory(item.name, item.type);
+      return { ...item, icon, category };
+    });
+
+    data.sort((a, b) => {
+      const orderA = typeOrder[a.category] ?? 99;
+      const orderB = typeOrder[b.category] ?? 99;
+      return orderA - orderB;
+    });
+
+    currentPath = path;
+    pathDisplay.textContent = path ? "/" + path : "/ (root)";
+    backBtn.style.display = path ? "inline-block" : "none";
+
+    list.innerHTML = data.map(item => {
+      const isDir = item.type === 'dir';
+      return `
+        <div class="item" data-path="${item.path}" data-type="${item.type}">
+          <span>${item.icon}</span>
+          <a href="${isDir ? '#' : item.download_url}" ${isDir ? '' : 'target="_blank"'}>${item.name}</a>
+          <span class="type ${isDir ? 'folder' : ''}">
+            ${isDir ? 'Folder' : item.category.charAt(0).toUpperCase() + item.category.slice(1)}
+          </span>
+        </div>
+      `;
+    }).join('');
+
+    document.querySelectorAll('.item[data-type="dir"]').forEach(el => {
+      el.addEventListener('click', () => {
+        const newPath = el.getAttribute('data-path');
+        loadFiles(newPath);
+      });
+    });
+
+  } catch (err) {
+    list.innerHTML = `<p style="color: red;">Error loading directory: ${err.message}</p>`;
+  }
+}
+
+document.getElementById('back-btn').addEventListener('click', () => {
+  if (!currentPath.includes('/')) {
+    loadFiles('');
+  } else {
+    const parentPath = currentPath.split('/').slice(0, -1).join('/');
+    loadFiles(parentPath);
+  }
+});
+
+loadFiles();
+</script>
+</body>
+</html>
